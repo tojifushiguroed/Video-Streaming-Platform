@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Set Stream Parameters</title>
+</head>
+<body>
+    <h2>Set Streaming Parameters</h2>
+    <form action="/set_params" method="post">
+        <label>Width:</label>
+        <input type="number" name="width" value="{{ resolution[0] }}" required><br><br>
+
+        <label>Height:</label>
+        <input type="number" name="height" value="{{ resolution[1] }}" required><br><br>
+
+        <label>FPS:</label>
+        <input type="number" name="fps" value="{{ fps }}" required><br><br>
+
+        <input type="submit" value="Start Stream">
+    </form>
+</body>
+</html>
