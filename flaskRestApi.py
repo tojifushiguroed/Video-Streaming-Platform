@@ -10,6 +10,30 @@ import time
 import numpy as np
 import cv2
 from processor import process_frame  # Kullanıcının frame işleme fonksiyonu
+import paho.mqtt.client as mqtt
+import json
+from processor import process_frame, get_detected_objects
+from processor import model
+
+MQTT_BROKER = "broker.hivemq.com"  # Kendi MQTT broker adresinizi buraya girin
+MQTT_PORT = 1883
+MQTT_CLIENT_ID = f"flask_video_server_{time.time()}"  # Benzersiz bir istemci ID'si
+
+mqtt_client = mqtt.Client(MQTT_CLIENT_ID)
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        logger.info("MQTT broker'a başarıyla bağlandı.")
+    else:
+        logger.error(f"MQTT broker'a bağlanma hatası. Kod: {rc}")
+
+mqtt_client.on_connect = on_connect
+
+try:
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_start()  # Arka planda MQTT döngüsünü başlat
+except Exception as e:
+    logger.error(f"MQTT bağlantısı sırasında hata: {e}")
 
 # Logger ayarla
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(name)s:%(message)s')
@@ -35,6 +59,40 @@ loop_thread = None
 # Platform tespiti
 current_os = platform.system().lower()
 logger.debug(f"Current OS detected: {current_os}")
+
+def publish_system_status():
+    global is_streaming
+    if not is_streaming:
+        logger.debug("Stream durduruldu, MQTT mesajları yayınlanmıyor.")
+        return
+    try:
+        camera_id = "kamera1"
+        is_active = is_streaming
+        current_resolution = actual_resolution
+        current_fps = actual_fps
+
+        mqtt_client.publish(f"durum/{camera_id}/aktif", json.dumps(is_active))
+        mqtt_client.publish(f"durum/{camera_id}/cozunurluk/anlik", json.dumps(current_resolution))
+        mqtt_client.publish(f"durum/{camera_id}/fps/anlik", json.dumps(current_fps))
+
+        # Mevcut kareyi alıp analiz sonuçlarını al
+        last_frame = None
+        for p in pipelines:
+            if p["source_id"] == 0 and p["last_frame"] is not None:
+                last_frame = p["last_frame"].copy()
+                break
+
+        if last_frame is not None:
+            detected_objects = get_detected_objects(last_frame)
+            analytics_data = {"son_karedeki_algilananlar": detected_objects}
+            mqtt_client.publish(f"analiz/{camera_id}/algilananlar/son_kare", json.dumps(analytics_data))
+        else:
+            logger.warning("Son kare alınamadı, analiz verisi yayınlanmıyor.")
+
+        logger.debug("Sistem durumu ve analiz metrikleri MQTT üzerinden yayınlandı.")
+
+    except Exception as e:
+        logger.error(f"Sistem durumu yayınlama hatası: {e}")
 
 def get_video_source_element(index):
     if current_os == 'linux':
@@ -294,8 +352,20 @@ def status():
 def index():
     return redirect(url_for('set_params'))
 
+def status_publish_loop():
+    while True:
+        time.sleep(5)  # Her 5 saniyede bir durumu yayınla (isteğe göre ayarlayın)
+        publish_system_status()
+
+status_thread = threading.Thread(target=status_publish_loop)
+status_thread.daemon = True
+status_thread.start()
+
 if __name__ == '__main__':
     try:
         app.run(debug=True, threaded=True)
     finally:
         stop_gstreamer_pipelines()
+        if mqtt_client:
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()

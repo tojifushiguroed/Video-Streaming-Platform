@@ -1,11 +1,32 @@
 from ultralytics import YOLO
 import cv2
 import numpy as np
+from datetime import datetime
 
 model = YOLO("yolov5n.pt")
 
 FRAME_SKIP = 2
 frame_count = 0
+
+algilanan_nesneler = []
+
+def get_detected_objects(frame):
+    orig_h, orig_w = frame.shape[:2]
+    input_size = 320
+    small_frame = cv2.resize(frame, (input_size, input_size))
+    results = model(small_frame, verbose=False)
+    detected_objects = []
+    for r in results:
+        if r.boxes is not None and len(r.boxes.xyxy) > 0:  # Boxes nesnesi ve algılama var mı kontrolü
+            for *xyxy_tensor, conf, cls in r.boxes.xyxy.cpu().numpy():
+                xyxy = [int(x) for x in xyxy_tensor]
+                detected_objects.append({
+                    'sinif': model.names[int(cls)],
+                    'guven': float(conf),
+                    'bounding_box': xyxy,  # Bounding box koordinatlarını da ekleyelim
+                    'timestamp': datetime.now().isoformat()
+                })
+    return detected_objects
 
 def set_frame_skip(n):
     global FRAME_SKIP
