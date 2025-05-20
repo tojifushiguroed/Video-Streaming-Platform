@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Multi Webcam Stream with YOLO</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+        }
+        .stream-container {
+            margin: 20px 0;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        button.stop {
+            background-color: #f44336;
+        }
+        a {
+            display: inline-block;
+            margin-top: 15px;
+            color: #2196F3;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .info {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Multi Webcam Stream with YOLO</h2>
+    
+    <div class="info">
+        <p>Çözünürlük: {{ width }}x{{ height }} @ {{ fps }} FPS</p>
+    </div>
+    
+    <div class="stream-container">
+        <img src="/video_feed" alt="Video Stream" />
+    </div>
+    
+    <div class="controls">
+        <form action="/start" method="post">
+            <button type="submit">Start</button>
+        </form>
+        
+        <form action="/stop" method="post">
+            <button type="submit" class="stop">Stop</button>
+        </form>
+    </div>
+    
+    <a href="/set_params">Ayarları Değiştir</a>
+</body>
+</html>

@@ -1,21 +1,66 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Set Stream Parameters</title>
+    <title>Kamera Ayarları</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .error {
+            color: red;
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 <body>
-    <h2>Set Streaming Parameters</h2>
+    <h1>Kamera Ayarları</h1>
+    
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
     <form action="/set_params" method="post">
-        <label>Width:</label>
-        <input type="number" name="width" value="{{ resolution[0] }}" required><br><br>
-
-        <label>Height:</label>
-        <input type="number" name="height" value="{{ resolution[1] }}" required><br><br>
-
-        <label>FPS:</label>
-        <input type="number" name="fps" value="{{ fps }}" required><br><br>
-
-        <input type="submit" value="Start Stream">
+        <div class="form-group">
+            <label for="width">Genişlik:</label>
+            <input type="number" id="width" name="width" min="160" max="1920" value="{{ resolution[0] }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="height">Yükseklik:</label>
+            <input type="number" id="height" name="height" min="120" max="1080" value="{{ resolution[1] }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="fps">FPS:</label>
+            <input type="number" id="fps" name="fps" min="1" max="60" value="{{ fps }}" required>
+        </div>
+        
+        <button type="submit">Kaydet ve Başlat</button>
     </form>
 </body>
 </html>
