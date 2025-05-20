@@ -1,7 +1,7 @@
 # Video-Streaming-Platform / Multi-Webcam Streamer with YOLO
 Intelligent Multi-Source Video Analytics &amp; Streaming Platform
 
-# Project Owners: Elif Deniz Gölboyu 2202756 & Alihan Güler 2105173
+# Project Owners: Elif Deniz Gölboyu & Alihan Güler
 
 ## 1. Introduction
 This project is a Flask-based web application designed to stream video from multiple webcams, perform real-time object detection using the YOLOv5 model, and publish the detection results to an MQTT broker. This system is ideal for applications requiring live video analysis, such as security monitoring, industrial automation, and traffic management. 
