@@ -12,11 +12,9 @@ import paho.mqtt.client as mqtt
 import json
 import os
 
-# --- GStreamer Init ---
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
 
-# --- YOLO & Global Config ---
 model = YOLO("yolov5n.pt")
 FRAME_SKIP = 1
 frame_count = {}
@@ -33,13 +31,11 @@ camera_sources = []
 current_os = platform.system().lower()
 latest_detections = []
 
-# --- Flask Setup ---
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s:%(name)s:%(message)s')
 logger = logging.getLogger("MultiCamStreamer")
 Gst.init(None)
 
-# --- MQTT Setup ---
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
 MQTT_TOPIC = "yolo/detections"
@@ -53,7 +49,6 @@ def connect_mqtt():
     except Exception as e:
         print(f"[MQTT ERROR] {e}")
 
-# --- YOLO Frame Processor ---
 def process_frame(frame, source_id):
     if source_id not in frame_count:
         frame_count[source_id] = 0
@@ -116,9 +111,8 @@ def process_frame(frame, source_id):
 
     return frame
 
-# --- GStreamer Helpers ---
 def get_video_source(index):
-    if current_os == "darwin":  # macOS
+    if current_os == "darwin":
         return f"avfvideosrc device-index={index}"
     elif current_os == "windows":
         return f"dshowvideosrc device-index={index}"
@@ -129,14 +123,12 @@ def get_video_source(index):
 def detect_cameras(max_sources=5):
     sources = []
     
-    # Linux'ta kamera cihazlarını özel olarak kontrol et
     if current_os == "linux":
         for i in range(max_sources):
             if os.path.exists(f"/dev/video{i}"):
                 sources.append(i)
         return sources
     
-    # Diğer işletim sistemleri için
     for i in range(max_sources):
         try:
             cap = cv2.VideoCapture(i)
@@ -167,8 +159,6 @@ def on_new_sample(sink, source_id):
         
         # Create frame from buffer
         frame = np.ndarray((height, width, 3), np.uint8, map_info.data)
-        
-        # Process frame
         processed = process_frame(frame, source_id)
         
         # Store the processed frame
@@ -190,13 +180,11 @@ def create_pipelines():
     
     width, height = stream_resolution
     fps = stream_fps
-    
-    # Oluşturulan pipeline sayısı
+
     created = 0
     
     for src in camera_sources:
         try:
-            # GStreamer pipeline string'ini oluştur
             pipe_str = None
             
             if current_os == "linux":
@@ -206,7 +194,7 @@ def create_pipelines():
                     f"videoconvert ! video/x-raw,format=BGR ! "
                     f"appsink name=sink{src} emit-signals=true max-buffers=1 drop=true"
                 )
-            elif current_os == "darwin":  # macOS
+            elif current_os == "darwin":
                 pipe_str = (
                     f"avfvideosrc device-index={src} ! "
                     f"video/x-raw,width={width},height={height},framerate={fps}/1 ! "
@@ -258,18 +246,14 @@ def start_loop():
 
 def stop_pipelines():
     global main_loop, loop_thread, is_streaming
-    
-    # Set streaming flag to False
     is_streaming = False
-    
-    # Stop all pipelines
+
     for p in pipelines:
         try:
             p["pipeline"].set_state(Gst.State.NULL)
         except Exception as e:
             logger.error(f"Error stopping pipeline: {e}")
-    
-    # Stop the GLib main loop
+
     if main_loop and main_loop.is_running():
         main_loop.quit()
         if loop_thread:
@@ -287,14 +271,9 @@ def start_pipelines():
 def restart_streaming():
     """Restart the streaming with current settings"""
     global is_streaming
-    
-    # Stop current pipelines
     stop_pipelines()
-    
-    # Wait a moment
     time.sleep(1)
-    
-    # Create new pipelines
+
     if create_pipelines():
         start_loop()
         start_pipelines()
@@ -302,11 +281,9 @@ def restart_streaming():
         return True
     return False
 
-# --- Stream Generator ---
 def generate_stream():
     global is_streaming
-    
-    # Try to create pipelines if not already created
+
     if not pipelines:
         if not create_pipelines():
             yield b''
@@ -315,10 +292,8 @@ def generate_stream():
         start_pipelines()
     
     is_streaming = True
-    
-    # Stream frames as long as streaming is active
+
     while is_streaming:
-        # Get frames from all pipelines
         frames = [p["last_frame"] for p in pipelines if p["last_frame"] is not None]
         
         if not frames:
@@ -365,10 +340,8 @@ def generate_stream():
     
     stop_pipelines()
 
-# --- Flask Routes ---
 @app.route('/')
 def index():
-    # Redirect to set_params page first as requested
     return redirect(url_for('set_params'))
 
 @app.route('/video_feed')
@@ -390,18 +363,15 @@ def set_params():
                 return render_template('setParams.html', 
                                       resolution=stream_resolution, 
                                       fps=stream_fps, 
-                                      error="Geçersiz değerler! Çözünürlük: 160x120 - 1920x1080, FPS: 1-60 arasında olmalıdır.")
-            
-            # Update settings
+                                      error="Invalid values! Resolution must be between 160x120 and 1920x1080, and FPS must be between 1 and 60.")
+
             stream_resolution = (width, height)
             stream_fps = fps_value
             logger.info(f"[SET_PARAMS] Updated to {stream_resolution} @ {stream_fps} FPS")
-            
-            # Detect cameras if not already detected
+
             if not camera_sources:
                 camera_sources.extend(detect_cameras())
-            
-            # Redirect to video page to start streaming with new settings
+
             return redirect(url_for('video_page'))
         
         except Exception as e:
@@ -411,7 +381,6 @@ def set_params():
                                   fps=stream_fps, 
                                   error="Geçersiz giriş!")
     
-    # GET request - show settings form
     width, height = stream_resolution
     return render_template('setParams.html', resolution=(width, height), fps=stream_fps)
 
@@ -427,27 +396,21 @@ def video_page():
 @app.route('/start', methods=['POST'])
 def start():
     global is_streaming, camera_sources
-    
-    # Detect cameras if not already done
     if not camera_sources:
         camera_sources = detect_cameras()
-    
-    # Start streaming
+
     is_streaming = True
     restart_streaming()
-    
-    # Return to video page
+
     return redirect(url_for('video_page'))
 
 @app.route('/stop', methods=['POST'])
 def stop():
     global is_streaming
-    
-    # Stop streaming
+
     is_streaming = False
     stop_pipelines()
-    
-    # Redirect to set_params page as requested in the workflow
+
     return redirect(url_for('set_params'))
 
 @app.route('/last_detections', methods=['GET'])
@@ -465,17 +428,15 @@ def status():
         "detection_count": len(latest_detections)
     })
 
-# Create templates directory if it doesn't exist
 if not os.path.exists('templates'):
     os.makedirs('templates')
 
-# Create template files
 with open('templates/setParams.html', 'w') as f:
     f.write('''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Kamera Ayarları</title>
+    <title>Camera Settings</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -511,7 +472,7 @@ with open('templates/setParams.html', 'w') as f:
     </style>
 </head>
 <body>
-    <h1>Kamera Ayarları</h1>
+    <h1>Camera Settings</h1>
     
     {% if error %}
     <div class="error">{{ error }}</div>
@@ -519,12 +480,12 @@ with open('templates/setParams.html', 'w') as f:
     
     <form action="/set_params" method="post">
         <div class="form-group">
-            <label for="width">Genişlik:</label>
+            <label for="width">Width:</label>
             <input type="number" id="width" name="width" min="160" max="1920" value="{{ resolution[0] }}" required>
         </div>
         
         <div class="form-group">
-            <label for="height">Yükseklik:</label>
+            <label for="height">Height:</label>
             <input type="number" id="height" name="height" min="120" max="1080" value="{{ resolution[1] }}" required>
         </div>
         
@@ -533,7 +494,7 @@ with open('templates/setParams.html', 'w') as f:
             <input type="number" id="fps" name="fps" min="1" max="60" value="{{ fps }}" required>
         </div>
         
-        <button type="submit">Kaydet ve Başlat</button>
+        <button type="submit">Save and Start</button>
     </form>
 </body>
 </html>
@@ -595,7 +556,7 @@ with open('templates/video_page.html', 'w') as f:
     <h2>Multi Webcam Stream with YOLO</h2>
     
     <div class="info">
-        <p>Çözünürlük: {{ width }}x{{ height }} @ {{ fps }} FPS</p>
+        <p>Resolution: {{ width }}x{{ height }} @ {{ fps }} FPS</p>
     </div>
     
     <div class="stream-container">
@@ -612,7 +573,7 @@ with open('templates/video_page.html', 'w') as f:
         </form>
     </div>
     
-    <a href="/set_params">Ayarları Değiştir</a>
+    <a href="/set_params">Change Settings</a>
 </body>
 </html>
 ''')

@@ -1,10 +1,7 @@
 import cv2
 from ultralytics import YOLO
 
-# YOLOv5n modelini yükle (otomatik indirir)
 model = YOLO("yolov5n.pt")
-
-# Kamerayı başlat (0 varsayılan kameradır)
 cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
@@ -16,10 +13,8 @@ while True:
     if not ret:
         break
 
-    # YOLO tahmini
     results = model(frame)
 
-    # Sonuçları çiz
     for r in results:
         boxes = r.boxes.xyxy.cpu().numpy()
         scores = r.boxes.conf.cpu().numpy()
@@ -32,10 +27,8 @@ while True:
             cv2.putText(frame, label, (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    # Sonuçları göster
     cv2.imshow("YOLOv5n Detection", frame)
 
-    # Çıkmak için 'q' tuşuna bas
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
